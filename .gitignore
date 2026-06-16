@@ -1,0 +1,16 @@
+# Virtual environment — packages are listed in requirements.txt instead
+venv/
+
+# Python bytecode cache — auto-generated, not needed in version control
+__pycache__/
+*.pyc
+
+# macOS system files
+.DS_Store
+
+# Editor/IDE folders
+.vscode/
+.idea/
+
+# Claude Code session memory (local only)
+.claude/
