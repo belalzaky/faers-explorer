@@ -79,6 +79,50 @@ def fetch_reactions(drug_name: str) -> Optional[pd.DataFrame]:
 
 
 @st.cache_data(show_spinner=False)
+def fetch_demographics(drug_name: str) -> dict:
+    """Return sex-split and age-group DataFrames for drug_name."""
+    sex_labels  = {"1": "Male", "2": "Female", "0": "Unknown"}
+    age_labels  = {"1": "Neonate", "2": "Infant", "3": "Child",
+                   "4": "Adolescent", "5": "Adult", "6": "Elderly"}
+    age_order   = ["Neonate", "Infant", "Child", "Adolescent", "Adult", "Elderly"]
+
+    def _fetch_count(field: str) -> Optional[pd.DataFrame]:
+        url = (
+            "https://api.fda.gov/drug/event.json"
+            f'?search=patient.drug.medicinalproduct:"{drug_name}"'
+            f"&count={field}&limit=10"
+        )
+        resp = requests.get(url, timeout=10)
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        return pd.DataFrame(resp.json()["results"])
+
+    raw_sex = _fetch_count("patient.patientsex")
+    if raw_sex is not None:
+        raw_sex.columns = ["code", "Reports"]
+        raw_sex["Sex"] = raw_sex["code"].astype(str).map(sex_labels).fillna("Unknown")
+        df_sex = raw_sex[["Sex", "Reports"]]
+    else:
+        df_sex = None
+
+    raw_age = _fetch_count("patient.patientagegroup")
+    if raw_age is not None:
+        raw_age.columns = ["code", "Reports"]
+        raw_age["Age Group"] = raw_age["code"].astype(str).map(age_labels).fillna("Unknown")
+        raw_age = raw_age[["Age Group", "Reports"]]
+        # enforce the fixed age order for any groups that appear in the data
+        raw_age["Age Group"] = pd.Categorical(
+            raw_age["Age Group"], categories=age_order, ordered=True
+        )
+        df_age = raw_age.sort_values("Age Group").reset_index(drop=True)
+    else:
+        df_age = None
+
+    return {"sex": df_sex, "age": df_age}
+
+
+@st.cache_data(show_spinner=False)
 def fetch_yearly_trend(drug_name: str, start: int = 2013, end: int = 2023) -> pd.DataFrame:
     """Return a year-by-year report count for drug_name (one API call per year)."""
     rows = []
@@ -104,7 +148,7 @@ def fetch_yearly_trend(drug_name: str, start: int = 2013, end: int = 2023) -> pd
 # only appears inside that tab — but Streamlit still *executes* all the code
 # on every run; the cache (above) ensures that doesn't cause extra API calls.
 
-tab1, tab2 = st.tabs(["📊 Top 10 Reactions", "📈 Reports per Year"])
+tab1, tab2, tab3 = st.tabs(["📊 Top 10 Reactions", "📈 Reports per Year", "👥 Demographics"])
 
 # ── Tab 1: bar chart of top reactions ────────────────────────────────────────
 
@@ -214,3 +258,67 @@ with tab2:
 
         st.markdown("**Raw data**")
         st.dataframe(df_trend, use_container_width=True, hide_index=True)
+
+
+# ── Tab 3: demographics (sex split + age groups) ─────────────────────────────
+
+with tab3:
+    with st.spinner(f"Fetching demographics for {drug}…"):
+        try:
+            demo = fetch_demographics(drug)
+        except requests.RequestException as e:
+            st.error(f"API request failed: {e}")
+            st.stop()
+
+    df_sex = demo["sex"]
+    df_age = demo["age"]
+
+    if df_sex is None and df_age is None:
+        st.warning(f"No demographic data found for **{drug}**.")
+    else:
+        st.subheader(f"Demographics — {drug}")
+        col_left, col_right = st.columns(2)
+
+        with col_left:
+            st.markdown("**Sex split**")
+            if df_sex is None:
+                st.info("No sex data available.")
+            else:
+                fig_s, ax_s = plt.subplots(figsize=(4, 3))
+                ax_s.bar(df_sex["Sex"], df_sex["Reports"],
+                         color="steelblue", edgecolor="white")
+                ax_s.set_ylabel("Reports", fontsize=10)
+                ax_s.yaxis.set_major_formatter(
+                    plt.FuncFormatter(lambda x, _: f"{int(x):,}")
+                )
+                ax_s.spines["top"].set_visible(False)
+                ax_s.spines["right"].set_visible(False)
+                ax_s.yaxis.grid(True, linestyle="--", alpha=0.4)
+                ax_s.set_axisbelow(True)
+                plt.tight_layout()
+                st.pyplot(fig_s, clear_figure=True)
+
+        with col_right:
+            st.markdown("**Age groups**")
+            if df_age is None:
+                st.info("No age data available.")
+            else:
+                fig_a, ax_a = plt.subplots(figsize=(4, 3))
+                ax_a.bar(df_age["Age Group"], df_age["Reports"],
+                         color="darkorange", edgecolor="white")
+                ax_a.set_ylabel("Reports", fontsize=10)
+                ax_a.tick_params(axis="x", rotation=30)
+                ax_a.yaxis.set_major_formatter(
+                    plt.FuncFormatter(lambda x, _: f"{int(x):,}")
+                )
+                ax_a.spines["top"].set_visible(False)
+                ax_a.spines["right"].set_visible(False)
+                ax_a.yaxis.grid(True, linestyle="--", alpha=0.4)
+                ax_a.set_axisbelow(True)
+                plt.tight_layout()
+                st.pyplot(fig_a, clear_figure=True)
+
+        st.markdown(
+            "_Demographics only reflect reports that included these fields — "
+            "many are left blank, so this is a partial picture._"
+        )
