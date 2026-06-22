@@ -4,6 +4,8 @@ Exploring the FDA Adverse Event Reporting System (FAERS) with Python — to unde
 
 **FAERS** is a public US database of adverse drug event reports submitted by patients, doctors, and manufacturers to the FDA. It contains tens of millions of reports going back to 1968 (via the legacy AERS system) and is one of the most widely used datasets in real-world drug safety research.
 
+**Live demo:** [belalzaky-faers.streamlit.app](https://belalzaky-faers.streamlit.app/)
+
 > First-year Pharmacology student at King's College London, building data skills in public.
 > Write-ups: [belalzaky.substack.com](https://belalzaky.substack.com) · [LinkedIn](https://www.linkedin.com/in/belalzaky)
 
