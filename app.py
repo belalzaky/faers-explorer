@@ -28,6 +28,18 @@ st.markdown(
     "Pick any drug name to see its reaction profile and report history."
 )
 
+with st.expander("⚠️ How to read this data", expanded=True):
+    st.markdown(
+        "- **These are reports, not proven side effects.** A report only means someone "
+        "suspected a link — there's no confirmation the drug caused the event.\n"
+        "- **No denominator.** We don't know how many people took each drug, so counts "
+        "can't be turned into actual risk rates.\n"
+        "- **Reporting & notoriety bias.** Media coverage, recalls, and lawsuits inflate "
+        "report counts independently of any real change in risk.\n"
+        "- **Duplicates.** The same event is often filed separately by the patient, "
+        "their doctor, and the manufacturer."
+    )
+
 # ── Drug name input ───────────────────────────────────────────────────────────
 # st.text_input() renders a text box on the page.
 # Whatever the user types is returned as a string and stored in `drug`.
