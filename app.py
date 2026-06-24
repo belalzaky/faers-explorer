@@ -148,7 +148,7 @@ def fetch_yearly_trend(drug_name: str, start: int = 2013, end: int = 2023) -> pd
 # only appears inside that tab — but Streamlit still *executes* all the code
 # on every run; the cache (above) ensures that doesn't cause extra API calls.
 
-tab1, tab2, tab3 = st.tabs(["📊 Top 10 Reactions", "📈 Reports per Year", "👥 Demographics"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Top 10 Reactions", "📈 Reports per Year", "👥 Demographics", "⚖️ Compare two drugs"])
 
 # ── Tab 1: bar chart of top reactions ────────────────────────────────────────
 
@@ -322,3 +322,85 @@ with tab3:
             "_Demographics only reflect reports that included these fields — "
             "many are left blank, so this is a partial picture._"
         )
+
+
+# ── Tab 4: compare two drugs ──────────────────────────────────────────────────
+
+with tab4:
+    st.subheader("Compare top-10 reactions for two drugs")
+
+    cmp_col1, cmp_col2 = st.columns(2)
+    with cmp_col1:
+        drug_a = st.text_input("Drug A:", value="HUMIRA", key="cmp_a").strip().upper()
+    with cmp_col2:
+        drug_b = st.text_input("Drug B:", value="ENBREL", key="cmp_b").strip().upper()
+
+    if not drug_a or not drug_b:
+        st.info("Enter both drug names above.")
+    else:
+        with st.spinner(f"Fetching reactions for {drug_a} and {drug_b}…"):
+            try:
+                df_a = fetch_reactions(drug_a)
+                df_b = fetch_reactions(drug_b)
+            except requests.RequestException as e:
+                st.error(f"API request failed: {e}")
+                st.stop()
+
+        chart_col1, chart_col2 = st.columns(2)
+
+        def _reaction_bar(ax, df, title):
+            df_s = df.sort_values("Reports", ascending=True)
+            ax.barh(df_s["Reaction"], df_s["Reports"],
+                    color="darkorange", edgecolor="white")
+            for bar, count in zip(ax.patches, df_s["Reports"]):
+                ax.text(
+                    bar.get_width() * 0.97,
+                    bar.get_y() + bar.get_height() / 2,
+                    f"{count:,}",
+                    va="center", ha="right",
+                    color="white", fontweight="bold", fontsize=7,
+                )
+            ax.set_title(title, fontsize=10, fontweight="bold")
+            ax.set_xlabel("Reports", fontsize=9)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            ax.xaxis.grid(True, linestyle="--", alpha=0.5)
+            ax.set_axisbelow(True)
+
+        with chart_col1:
+            if df_a is None:
+                st.warning(f"No data for **{drug_a}**.")
+            else:
+                fig_a, ax_a = plt.subplots(figsize=(4.5, 5))
+                _reaction_bar(ax_a, df_a, drug_a)
+                plt.tight_layout()
+                st.pyplot(fig_a, clear_figure=True)
+
+        with chart_col2:
+            if df_b is None:
+                st.warning(f"No data for **{drug_b}**.")
+            else:
+                fig_b, ax_b = plt.subplots(figsize=(4.5, 5))
+                _reaction_bar(ax_b, df_b, drug_b)
+                plt.tight_layout()
+                st.pyplot(fig_b, clear_figure=True)
+
+        # Overlap table — only shown when both fetches succeeded
+        if df_a is not None and df_b is not None:
+            shared = set(df_a["Reaction"]) & set(df_b["Reaction"])
+            if shared:
+                st.markdown("**Reactions in both top 10s**")
+                overlap = (
+                    df_a[df_a["Reaction"].isin(shared)]
+                    .rename(columns={"Reports": f"Reports ({drug_a})"})
+                    .merge(
+                        df_b[df_b["Reaction"].isin(shared)]
+                        .rename(columns={"Reports": f"Reports ({drug_b})"}),
+                        on="Reaction",
+                    )
+                    .sort_values(f"Reports ({drug_a})", ascending=False)
+                    .reset_index(drop=True)
+                )
+                st.dataframe(overlap, use_container_width=True, hide_index=True)
+            else:
+                st.info("No reactions appear in both top 10s.")
