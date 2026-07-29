@@ -6,8 +6,7 @@ Exploring the FDA Adverse Event Reporting System (FAERS) with Python — to unde
 
 **Live demo:** [belalzaky-faers.streamlit.app](https://belalzaky-faers.streamlit.app/)
 
-> First-year Pharmacology student at King's College London, building data skills in public.
-> Write-ups: [belalzaky.substack.com](https://belalzaky.substack.com) · [LinkedIn](https://www.linkedin.com/in/belalzaky)
+> Pharmacology BSc at King's College London. Full write-up and interactive version: [belalzaky.uk](https://belalzaky.uk) · [Substack](https://belalzaky.substack.com) · [LinkedIn](https://www.linkedin.com/in/belalzaky)
 
 ---
 
